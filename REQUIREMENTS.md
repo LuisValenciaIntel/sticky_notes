@@ -50,7 +50,10 @@ Users must be able to:
 
 - Create sticky notes.
 - Search notes they have created.
-- View search results.
+- View all notes by default in the search notes view.
+- Open any note in a centered modal.
+- Edit a note from the modal.
+- Delete a note from the modal.
 - Store note data persistently in a JSON file.
 
 Each note should include:
@@ -71,6 +74,8 @@ Use FastAPI to provide an API for:
 - Change password
 - Create note
 - Search notes
+- Update note
+- Delete note
 
 Suggested endpoints:
 
@@ -79,6 +84,8 @@ Suggested endpoints:
 - `POST /api/change-password`
 - `POST /api/notes`
 - `GET /api/notes?search=...`
+- `PUT /api/notes/{note_id}`
+- `DELETE /api/notes/{note_id}`
 
 ## Frontend Requirements
 
