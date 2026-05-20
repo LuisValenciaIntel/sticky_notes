@@ -352,6 +352,12 @@ body {
   margin-bottom: 1.25rem;
 }
 
+.search-hint {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
 .search-input {
   flex: 1;
   min-width: 200px;
@@ -392,6 +398,17 @@ body {
   flex-direction: column;
   gap: 0.5rem;
   min-height: 130px;
+}
+
+.note-card-button {
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.note-card-button:hover {
+  filter: brightness(0.98);
 }
 
 .note-title {
@@ -462,6 +479,48 @@ body {
 .note-preview strong {
   font-size: 0.95rem;
   color: var(--color-text);
+}
+
+/* -----------------------------------------------------------------------
+   Modal
+----------------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.note-modal {
+  width: 100%;
+  max-width: 640px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.modal-preview {
+  margin-bottom: 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 /* -----------------------------------------------------------------------

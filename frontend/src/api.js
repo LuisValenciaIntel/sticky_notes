@@ -54,6 +54,30 @@ export async function apiCreateNote(token, { title, content, color }) {
   return data
 }
 
+export async function apiUpdateNote(token, noteId, { title, content, color }) {
+  const res = await fetch(`/api/notes/${noteId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title, content, color }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to update note')
+  return data
+}
+
+export async function apiDeleteNote(token, noteId) {
+  const res = await fetch(`/api/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.detail || 'Failed to delete note')
+  return data
+}
+
 export async function apiCreateUser(token, { username, password }) {
   const res = await fetch('/api/users', {
     method: 'POST',

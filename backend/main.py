@@ -111,6 +111,12 @@ class NoteOut(BaseModel):
     created_at: str
 
 
+class NoteUpdate(BaseModel):
+    title: str
+    content: str
+    color: Optional[str] = "#fff7a8"
+
+
 class UserOut(BaseModel):
     id: str
     username: str
@@ -267,6 +273,44 @@ def create_note(
     db["notes"].append(note)
     _save_db(db)
     return NoteOut(**note)
+
+
+@app.put("/api/notes/{note_id}", response_model=NoteOut)
+def update_note(
+    note_id: str,
+    body: NoteUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["must_change_password"]:
+        raise HTTPException(status_code=403, detail="Password change required before editing notes")
+
+    db = _load_db()
+    note = next((n for n in db["notes"] if n["id"] == note_id and n["user_id"] == current_user["id"]), None)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    note["title"] = body.title
+    note["content"] = body.content
+    note["color"] = body.color or note["color"]
+    _save_db(db)
+    return NoteOut(**note)
+
+
+@app.delete("/api/notes/{note_id}")
+def delete_note(
+    note_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["must_change_password"]:
+        raise HTTPException(status_code=403, detail="Password change required before deleting notes")
+
+    db = _load_db()
+    before = len(db["notes"])
+    db["notes"] = [n for n in db["notes"] if not (n["id"] == note_id and n["user_id"] == current_user["id"])]
+    if len(db["notes"]) == before:
+        raise HTTPException(status_code=404, detail="Note not found")
+    _save_db(db)
+    return {"message": "Note deleted successfully"}
 
 
 @app.get("/api/notes", response_model=list[NoteOut])

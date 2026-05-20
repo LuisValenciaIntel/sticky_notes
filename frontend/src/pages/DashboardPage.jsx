@@ -1,5 +1,12 @@
-import { useState, useEffect } from 'react'
-import { apiSearchNotes, apiCreateNote, apiMe, apiCreateUser } from '../api.js'
+import { useEffect, useState } from 'react'
+import {
+  apiSearchNotes,
+  apiCreateNote,
+  apiMe,
+  apiCreateUser,
+  apiUpdateNote,
+  apiDeleteNote,
+} from '../api.js'
 
 const NOTE_COLORS = [
   { label: 'Yellow', value: '#fff7a8' },
@@ -13,16 +20,22 @@ const NOTE_COLORS = [
 export default function DashboardPage({ token, onLogout }) {
   const [username, setUsername] = useState('')
   const [isTestUser, setIsTestUser] = useState(false)
-  const [activePanel, setActivePanel] = useState(null) // 'search' | 'create' | null
+  const [activePanel, setActivePanel] = useState(null)
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
-  const [hasSearched, setHasSearched] = useState(false)
+  const [showAllNotes, setShowAllNotes] = useState(true)
 
-  // Create state
+  const [selectedNote, setSelectedNote] = useState(null)
+  const [modalTitle, setModalTitle] = useState('')
+  const [modalContent, setModalContent] = useState('')
+  const [modalColor, setModalColor] = useState('#fff7a8')
+  const [modalError, setModalError] = useState('')
+  const [modalLoading, setModalLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
   const [noteTitle, setNoteTitle] = useState('')
   const [noteContent, setNoteContent] = useState('')
   const [noteColor, setNoteColor] = useState('#fff7a8')
@@ -30,12 +43,25 @@ export default function DashboardPage({ token, onLogout }) {
   const [createSuccess, setCreateSuccess] = useState('')
   const [createLoading, setCreateLoading] = useState(false)
 
-  // User-management state for the seeded test account only
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [userCreateError, setUserCreateError] = useState('')
   const [userCreateSuccess, setUserCreateSuccess] = useState('')
   const [userCreateLoading, setUserCreateLoading] = useState(false)
+
+  async function loadNotes(search = '') {
+    setSearchError('')
+    setSearchLoading(true)
+    try {
+      const notes = await apiSearchNotes(token, search)
+      setSearchResults(notes)
+      setShowAllNotes(!search)
+    } catch (err) {
+      setSearchError(err.message)
+    } finally {
+      setSearchLoading(false)
+    }
+  }
 
   useEffect(() => {
     apiMe(token)
@@ -46,27 +72,54 @@ export default function DashboardPage({ token, onLogout }) {
       .catch(() => {})
   }, [token])
 
-  // Search
+  useEffect(() => {
+    loadNotes('')
+  }, [token])
+
   async function handleSearch(e) {
     e.preventDefault()
-    setSearchError('')
-    setSearchLoading(true)
-    setHasSearched(true)
-    try {
-      const notes = await apiSearchNotes(token, searchQuery)
-      setSearchResults(notes)
-    } catch (err) {
-      setSearchError(err.message)
-    } finally {
-      setSearchLoading(false)
-    }
+    await loadNotes(searchQuery)
   }
 
   function handleClearSearch() {
     setSearchQuery('')
-    setSearchResults([])
-    setHasSearched(false)
-    setSearchError('')
+    loadNotes('')
+  }
+
+  function openNoteModal(note) {
+    setSelectedNote(note)
+    setModalTitle(note.title)
+    setModalContent(note.content)
+    setModalColor(note.color)
+    setModalError('')
+    setModalLoading(false)
+    setDeleteLoading(false)
+  }
+
+  function closeNoteModal() {
+    setSelectedNote(null)
+    setModalError('')
+    setModalLoading(false)
+    setDeleteLoading(false)
+  }
+
+  async function handleCreateNote(e) {
+    e.preventDefault()
+    setCreateError('')
+    setCreateSuccess('')
+    setCreateLoading(true)
+    try {
+      await apiCreateNote(token, { title: noteTitle, content: noteContent, color: noteColor })
+      setCreateSuccess('Note created successfully!')
+      setNoteTitle('')
+      setNoteContent('')
+      setNoteColor('#fff7a8')
+      loadNotes(searchQuery)
+    } catch (err) {
+      setCreateError(err.message)
+    } finally {
+      setCreateLoading(false)
+    }
   }
 
   async function handleCreateUser(e) {
@@ -86,22 +139,37 @@ export default function DashboardPage({ token, onLogout }) {
     }
   }
 
-  // Create
-  async function handleCreateNote(e) {
-    e.preventDefault()
-    setCreateError('')
-    setCreateSuccess('')
-    setCreateLoading(true)
+  async function handleSaveNote() {
+    if (!selectedNote) return
+    setModalError('')
+    setModalLoading(true)
     try {
-      await apiCreateNote(token, { title: noteTitle, content: noteContent, color: noteColor })
-      setCreateSuccess('Note created successfully!')
-      setNoteTitle('')
-      setNoteContent('')
-      setNoteColor('#fff7a8')
+      const updated = await apiUpdateNote(token, selectedNote.id, {
+        title: modalTitle,
+        content: modalContent,
+        color: modalColor,
+      })
+      setSearchResults((prev) => prev.map((note) => (note.id === updated.id ? updated : note)))
+      setSelectedNote(updated)
     } catch (err) {
-      setCreateError(err.message)
+      setModalError(err.message)
     } finally {
-      setCreateLoading(false)
+      setModalLoading(false)
+    }
+  }
+
+  async function handleDeleteNote() {
+    if (!selectedNote) return
+    setModalError('')
+    setDeleteLoading(true)
+    try {
+      await apiDeleteNote(token, selectedNote.id)
+      setSearchResults((prev) => prev.filter((note) => note.id !== selectedNote.id))
+      closeNoteModal()
+    } catch (err) {
+      setModalError(err.message)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -111,7 +179,6 @@ export default function DashboardPage({ token, onLogout }) {
 
   return (
     <div className="dashboard-wrapper">
-      {/* Header */}
       <header className="dashboard-header">
         <div className="header-brand">
           <span className="header-logo">📝</span>
@@ -125,13 +192,11 @@ export default function DashboardPage({ token, onLogout }) {
         </div>
       </header>
 
-      {/* Dashboard cards */}
       <main className="dashboard-main">
         <h2 className="dashboard-greeting">Welcome back, {username}!</h2>
         <p className="dashboard-subtitle">What would you like to do?</p>
 
         <div className="cards-grid">
-          {/* Search Card */}
           <div
             className={`dashboard-card ${activePanel === 'search' ? 'card-active' : ''}`}
             onClick={() => setActivePanel(activePanel === 'search' ? null : 'search')}
@@ -141,7 +206,6 @@ export default function DashboardPage({ token, onLogout }) {
             <p className="card-description">Find notes by title or content</p>
           </div>
 
-          {/* Create Card */}
           <div
             className={`dashboard-card ${activePanel === 'create' ? 'card-active' : ''}`}
             onClick={() => setActivePanel(activePanel === 'create' ? null : 'create')}
@@ -163,13 +227,18 @@ export default function DashboardPage({ token, onLogout }) {
           )}
         </div>
 
-        {/* Search Panel */}
         {activePanel === 'search' && (
           <section className="panel">
             <div className="panel-header">
               <h3>Search Notes</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>
+                ✕
+              </button>
             </div>
+
+            {showAllNotes && !searchLoading && !searchQuery && (
+              <div className="search-hint">Showing all notes. Use search to filter results.</div>
+            )}
 
             <form onSubmit={handleSearch} className="search-form">
               <input
@@ -183,31 +252,31 @@ export default function DashboardPage({ token, onLogout }) {
               <button type="submit" className="btn btn-primary" disabled={searchLoading}>
                 {searchLoading ? 'Searching…' : 'Search'}
               </button>
-              {hasSearched && (
-                <button type="button" className="btn btn-ghost" onClick={handleClearSearch}>
-                  Clear
-                </button>
-              )}
+              <button type="button" className="btn btn-ghost" onClick={handleClearSearch}>
+                Show All
+              </button>
             </form>
 
             {searchError && <div className="alert alert-error">{searchError}</div>}
 
-            {hasSearched && !searchLoading && (
+            {!searchLoading && (
               <div className="search-results">
                 {searchResults.length === 0 ? (
                   <p className="empty-state">No notes found.</p>
                 ) : (
                   <div className="notes-grid">
                     {searchResults.map((note) => (
-                      <div
+                      <button
                         key={note.id}
-                        className="note-card"
+                        type="button"
+                        className="note-card note-card-button"
                         style={{ backgroundColor: note.color }}
+                        onClick={() => openNoteModal(note)}
                       >
                         <h4 className="note-title">{note.title}</h4>
                         <p className="note-content">{note.content}</p>
                         <span className="note-date">{formatDate(note.created_at)}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -216,12 +285,13 @@ export default function DashboardPage({ token, onLogout }) {
           </section>
         )}
 
-        {/* Create Panel */}
         {activePanel === 'create' && (
           <section className="panel">
             <div className="panel-header">
               <h3>Create Note</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleCreateNote} className="create-form">
@@ -266,7 +336,6 @@ export default function DashboardPage({ token, onLogout }) {
                 </div>
               </div>
 
-              {/* Live preview */}
               <div className="note-preview" style={{ backgroundColor: noteColor }}>
                 <strong>{noteTitle || 'Note title'}</strong>
                 <p>{noteContent || 'Note content preview…'}</p>
@@ -286,7 +355,9 @@ export default function DashboardPage({ token, onLogout }) {
           <section className="panel">
             <div className="panel-header">
               <h3>Create Users</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setActivePanel(null)}>
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleCreateUser} className="create-form">
@@ -323,6 +394,68 @@ export default function DashboardPage({ token, onLogout }) {
               </button>
             </form>
           </section>
+        )}
+
+        {selectedNote && (
+          <div className="modal-backdrop" onClick={closeNoteModal}>
+            <div className="note-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Note Details</h3>
+                <button className="btn btn-ghost btn-sm" onClick={closeNoteModal}>
+                  ✕
+                </button>
+              </div>
+
+              <div className="note-preview modal-preview" style={{ backgroundColor: modalColor }}>
+                <div className="form-group">
+                  <label htmlFor="modalTitle">Title</label>
+                  <input
+                    id="modalTitle"
+                    type="text"
+                    value={modalTitle}
+                    onChange={(e) => setModalTitle(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="modalContent">Content</label>
+                  <textarea
+                    id="modalContent"
+                    rows={6}
+                    value={modalContent}
+                    onChange={(e) => setModalContent(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Color</label>
+                  <div className="color-picker">
+                    {NOTE_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className={`color-swatch ${modalColor === c.value ? 'color-swatch-selected' : ''}`}
+                        style={{ backgroundColor: c.value }}
+                        title={c.label}
+                        onClick={() => setModalColor(c.value)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {modalError && <div className="alert alert-error">{modalError}</div>}
+
+              <div className="modal-actions">
+                <button className="btn btn-ghost" onClick={handleDeleteNote} disabled={deleteLoading}>
+                  {deleteLoading ? 'Deleting…' : 'Delete'}
+                </button>
+                <button className="btn btn-primary" onClick={handleSaveNote} disabled={modalLoading}>
+                  {modalLoading ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
